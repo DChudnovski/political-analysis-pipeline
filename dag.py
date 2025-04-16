@@ -5,8 +5,6 @@ from dotenv import load_dotenv
 import os
 import datetime
 # Snowflake Library (Note: Snowpark seems to only work with up to Python 3.12 while developing this project I used a virtual environment using Python3.11.9)
-import snowflake.connector 
-import snowflake.snowpark as sp
 from snowflake.snowpark import Session, FileOperation
 # Airflow libraries
 # from airflow import DAG
@@ -32,8 +30,9 @@ def extract_json_to_file():
     with open(file, 'w', encoding="utf-8") as json_file:
         json.dump(json_data, json_file, ensure_ascii=False, indent=4)
         json_file.close()
-#extract_json_to_file()
+
 extract_json_to_file()
+
 def read_json_file():
     file = './raw_data.json'
     with open(file, 'r', encoding='utf-8') as json_file:
@@ -42,7 +41,7 @@ def read_json_file():
 
 def load_to_snowflake():
     today = datetime.date.today().strftime("%d%m%y")
-    file = f'./{today}_data.json'
+    date_file = f'./{today}_data.json'
     
     connection_parameters = {
         'user' : SFUSER,
@@ -54,11 +53,16 @@ def load_to_snowflake():
     }
     session = Session.builder.configs(connection_parameters).create()
     operation = FileOperation(session)
-    result = operation.put(file, f"@jsondata",overwrite=True)
+    result = operation.put(date_file, f"@jsondata",overwrite=True)
+    os.rename(date_file, 'load_json.json')
+    new_file = './load_json.json'
+    result2 = operation.put(new_file, f"@jsondata",overwrite=True)
     print(result[0].status)
+    print(result2[0].status)
+    os.remove(new_file)
     # today = datetime.date.today().strftime('%d%m%y')
     # pass
-load_to_snowflake()
+#load_to_snowflake()
 
 # default_args = {
 #     'owner' : OWNER,
