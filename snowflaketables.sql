@@ -1,4 +1,7 @@
+CREATE DATABASE IF NOT EXISTS political_analysis;
 USE DATABASE political_analysis;
+
+CREATE SCHEMA IF NOT EXISTS analytics;
 
 USE SCHEMA public;
 
@@ -60,14 +63,22 @@ SELECT
         timestamp::datetime AS timestamp
  FROM market_json, LATERAL FLATTEN ( INPUT => SRC:contracts );
 
-SELECT * FROM political_betting_contracts;
+--SELECT * FROM political_betting_contracts;
 
 --TRUNCATE TABLE political_betting_contracts;
 
 --SELECT * FROM political_analysis.public.raw_json;
 
-SELECT * FROM market_json;
+--SELECT * FROM market_json;
 
 --DROP TABLE raw_json;
 --DROP TABLE market_json;
 --DROP TABLE political_betting_contracts;
+
+CREATE OR REPLACE VIEW analytics.new_york_city_mayor_race 
+AS
+SELECT contractid, marketid, name, lasttradeprice, bestbuyyescost, bestbuynocost, bestsellyescost, bestsellnocost,lastcloseprice, timestamp
+FROM public.political_betting_contracts
+WHERE marketid = 8095;
+
+SELECT * FROM analytics.new_york_city_mayor_race;

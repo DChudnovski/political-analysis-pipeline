@@ -7,9 +7,9 @@ import datetime
 # Snowflake Library (Note: Snowpark seems to only work with up to Python 3.12 while developing this project I used a virtual environment using Python3.11.9)
 from snowflake.snowpark import Session, FileOperation
 # Airflow libraries
-# from airflow import DAG
-# from airflow.operators.python import PythonOperator
-# from airflow.utils.dates import days_ago 
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from airflow.utils.dates import days_ago 
 
 # Loading environment variables from '.env' file Note: All environment variables will be referenced in allcaps
 load_dotenv()
@@ -31,18 +31,16 @@ def extract_json_to_file():
         json.dump(json_data, json_file, ensure_ascii=False, indent=4)
         json_file.close()
 
-extract_json_to_file()
-
-def read_json_file():
-    file = './raw_data.json'
-    with open(file, 'r', encoding='utf-8') as json_file:
-        json_data = json.load(json_file)
-    return json_data
+# Potentially useful json reading function
+# def read_json_file():
+#     file = './raw_data.json'
+#     with open(file, 'r', encoding='utf-8') as json_file:
+#         json_data = json.load(json_file)
+#     return json_data
 
 def load_to_snowflake():
     today = datetime.date.today().strftime("%d%m%y")
     date_file = f'./{today}_data.json'
-    
     connection_parameters = {
         'user' : SFUSER,
         'password' : SFPASS,
@@ -53,47 +51,38 @@ def load_to_snowflake():
     }
     session = Session.builder.configs(connection_parameters).create()
     operation = FileOperation(session)
-    result = operation.put(date_file, f"@jsondata",overwrite=True)
+    operation.put(date_file, f"@jsondata",overwrite=True)
     os.rename(date_file, 'load_json.json')
     new_file = './load_json.json'
-    result2 = operation.put(new_file, f"@jsondata",overwrite=True)
-    print(result[0].status)
-    print(result2[0].status)
+    operation.put(new_file, f"@jsondata",overwrite=True)
     os.remove(new_file)
-    # today = datetime.date.today().strftime('%d%m%y')
-    # pass
-#load_to_snowflake()
+    session.close()
 
-# default_args = {
-#     'owner' : OWNER,
-#     'start_date' : days_ago(0),
-#     'email' : [EMAIL]
-# }
+default_args = {
+    'owner' : OWNER,
+    'start_date' : days_ago(0),
+    'email' : [EMAIL]
+}
 
-# dag = DAG(
-#     'ETL-predictit-to-Snowflake',
-#     default_args=default_args,
-#     description='DAG that extracts political data and loads it into Snowflake stage as a JSON file',
-#     schedule_interval=datetime.timedelta(days=1)
-# )
+dag = DAG(
+    'ETL-predictit-to-Snowflake',
+    default_args=default_args,
+    description='DAG that extracts political data and loads it into Snowflake stage as a JSON file',
+    schedule_interval=datetime.timedelta(days=1)
+)
 
-# # Define task for extracting the data from Predictit API
-# extract_json = PythonOperator(
-#     task_id='extract_json',
-#     python_callable=extract_json_to_file,
-#     dag=dag
-# )
+# Define task for extracting the data from Predictit API
+extract_json = PythonOperator(
+    task_id='extract_json',
+    python_callable=extract_json_to_file,
+    dag=dag
+)
 
-# # Define task for transforming JSON data into a standardized form
-# transform_json = PythonOperator(
-#     task_id='transform_json',
-#     python_callable=transform_json,
-#     dag=dag
-# )
+# Define task for loading JSON data file into the Snowflake stage
+load_json_to_snowflake = PythonOperator(
+    task_id='load_json_to_snowflake',
+    python_callable=load_to_snowflake,
+    dag=dag
+)
 
-# # Define task for loading JSON data file into the Snowflake stage
-# load_json_to_snowflake = PythonOperator(
-#     task_id='load_json_to_snowflake',
-#     python_callable=load_to_snowflake,
-#     dag=dag
-# )
+extract_json >> load_json_to_snowflake
