@@ -6,7 +6,7 @@ import os
 import datetime
 # Snowflake Library (Note: Snowpark seems to only work with up to Python 3.12 while developing this project I used a virtual environment using Python3.11.9)
 from snowflake.snowpark import Session, FileOperation
-# Airflow libraries
+#Airflow libraries
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago 
@@ -23,7 +23,7 @@ DB = os.environ['DB']
 # Define callables for DAG tasks
 def extract_json_to_file():
     today = datetime.date.today().strftime("%d%m%y")
-    file = f'./{today}_data.json'
+    file = f'/{today}_data.json'
     URL = "https://www.predictit.org/api/marketdata/all/"
     res = requests.get(URL)
     json_data = res.json()
@@ -31,16 +31,9 @@ def extract_json_to_file():
         json.dump(json_data, json_file, ensure_ascii=False, indent=4)
         json_file.close()
 
-# Potentially useful json reading function
-# def read_json_file():
-#     file = './raw_data.json'
-#     with open(file, 'r', encoding='utf-8') as json_file:
-#         json_data = json.load(json_file)
-#     return json_data
-
 def load_to_snowflake():
     today = datetime.date.today().strftime("%d%m%y")
-    date_file = f'./{today}_data.json'
+    date_file = f'/{today}_data.json'
     connection_parameters = {
         'user' : SFUSER,
         'password' : SFPASS,
