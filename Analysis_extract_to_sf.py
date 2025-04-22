@@ -10,8 +10,8 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago 
 from airflow.models.variable import Variable
-# Loading environment variables from '.env' file Note: All environment variables will be referenced in allcaps
 
+# Loading environment variables from Airflow Environment Variables
 OWNER = Variable.get('OWNER')
 EMAIL = Variable.get('EMAIL')
 SFPASS = Variable.get('SFPASS')
@@ -29,13 +29,6 @@ def extract_json_to_file():
     with open(file, 'w', encoding="utf-8") as json_file:
         json.dump(json_data, json_file, ensure_ascii=False, indent=4)
         json_file.close()
-
-# Potentially useful json reading function
-# def read_json_file():
-#     file = './raw_data.json'
-#     with open(file, 'r', encoding='utf-8') as json_file:
-#         json_data = json.load(json_file)
-#     return json_data
 
 def load_to_snowflake():
     today = datetime.date.today().strftime("%d%m%y")
@@ -56,6 +49,21 @@ def load_to_snowflake():
     operation.put(new_file, f"@jsondata",overwrite=True)
     os.remove(new_file)
     session.close()
+
+def call_stor_proc():
+    connection_parameters = {
+        'user' : SFUSER,
+        'password' : SFPASS,
+        'account' : SFIDENT,
+        'role' : 'ACCOUNTADMIN',
+        'database' : DB,
+        'schema':'public'
+    }
+    session = Session.builder.configs(connection_parameters).create()
+    session.call('handle_load_json')
+    session.sql('SELECT * FROM analytics.new_york_city_mayor_race').show()
+    session.close()
+
 
 default_args = {
     'owner' : OWNER,
@@ -84,4 +92,11 @@ load_json_to_snowflake = PythonOperator(
     dag=dag
 )
 
-extract_json >> load_json_to_snowflake
+#Define task for calling Snowflake stored procedure
+call_stor_proc = PythonOperator(
+    task_id='call_stor_proc',
+    python_callable=call_stor_proc,
+    dag=dag
+)
+
+extract_json >> load_json_to_snowflake >> call_stor_proc
